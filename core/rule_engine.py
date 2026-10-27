@@ -40,9 +40,12 @@ INTENT_RULES: list[tuple[str, list[str]]] = [
     # 学习方案类（考证 / 实习 / 考研），领域专属词，避免误吞选课/每周计划
     ("learning", ["考研", "研究生", "四六级", "四级", "六级", "计算机等级", "教师资格",
                   "教资", "普通话", "实习", "证书", "考证", "备考",
-                  # 厂商认证（华为 ICT 认证体系）
+                  # 厂商认证（华为 / 阿里云 ICT 认证体系）
                   "hcia", "hcip", "hcie", "华为认证", "datacom", "数通",
-                  "云计算认证", "大数据认证", "认证考试"]),
+                  "云计算认证", "大数据认证", "认证考试",
+                  # 其他常见证书与出国考试
+                  "软考", "cda", "数据分析师", "阿里云", "acp",
+                  "雅思", "托福", "ielts", "toefl", "留学"]),
 ]
 
 # 星期关键词
@@ -103,6 +106,17 @@ def detect_intent(text: str) -> tuple[str, float]:
             best_intent = "policy"
         elif own_case:
             best_intent = "eligibility"
+
+    # ---- 视角消歧：区分「教务截止日期」与「证书考试时间」----
+    # 「软考/普通话什么时候报名」里的「什么时候」是考试日历，不是教务期限。
+    # 这类问题要的是一整条备考时间线，所以整句交给 learning。
+    if best_intent == "deadline" and detect_learning_topic(text):
+        best_intent = "learning"
+
+    # ---- 视角消歧：「考证的学习计划」不是「导出文档」----
+    # "计划"同时是 artifact 的关键词，但「软考学习计划」「考研复习计划」要的是方案本身。
+    if best_intent == "artifact" and detect_learning_topic(text):
+        best_intent = "learning"
 
     # ---- 视角消歧：区分「查我的已选课」与「查可选课程」----
     if best_intent == "courses":
@@ -194,11 +208,18 @@ def extract_keywords(text: str) -> list[str]:
     return kws
 
 
-# 学习方案主题 → 触发词。顺序即优先级（越具体的排越前）。
+# 学习方案主题 → 触发词。
 # 与 core/learning_plans.py 的模板 key 必须保持一致。
+# 注意：这里的**列表顺序不再决定优先级**，见 detect_learning_topic。
 LEARNING_TOPICS: list[tuple[str, list[str]]] = [
+    ("阿里云 ACP", ["阿里云", "acp", "aca", "云原生", "maxcompute"]),
     ("HCIA 认证", ["hcia", "hcip", "hcie", "华为认证", "datacom", "数通",
-                   "云计算认证", "大数据认证"]),
+                   "大数据认证"]),
+    ("软考", ["软考", "软件设计师", "数据库系统工程师", "系统集成项目管理",
+              "网络工程师", "计算机技术与软件专业技术资格"]),
+    ("CDA", ["cda", "数据分析师", "数据分析认证"]),
+    ("雅思托福", ["雅思", "托福", "ielts", "toefl", "出国", "留学", "交换生"]),
+    ("普通话", ["普通话", "二甲", "二乙", "普通话水平测试"]),
     ("考研", ["考研", "研究生", "推免"]),
     ("实习", ["实习", "暑期实习", "日常实习"]),
     ("四六级", ["四六级", "四级", "六级", "cet"]),
@@ -211,12 +232,23 @@ def detect_learning_topic(text: str) -> str:
     """从一句话里认出具体的考证 / 升学主题；认不出返回空串。
 
     认不出时上层会退回"按类别列条款"的通用回答，而不是硬套一个模板。
+
+    匹配策略：**命中长度优先，其次列表顺序**。
+    因为「阿里云 ACP 云计算认证怎么考」同时命中阿里云的「阿里云」(3 字)
+    与 HCIA 的「云计算认证」(5 字)，纯靠顺序会把前者误判成 HCIA；
+    而「华为 HCIA 云计算认证」命中「华为认证|hcia」更长，仍正确归 HCIA。
+    所以按"命中片段越长越具体"的直觉排序，既保住顺序表的可读性，
+    又避免主题之间互相吃词。
     """
     lowered = text.lower()
-    for topic, keys in LEARNING_TOPICS:
-        if any(k.lower() in lowered for k in keys):
-            return topic
-    return ""
+    best_topic, best_len, best_rank = "", 0, len(LEARNING_TOPICS) + 1
+    for rank, (topic, keys) in enumerate(LEARNING_TOPICS):
+        for k in keys:
+            if k.lower() in lowered:
+                if len(k) > best_len or (len(k) == best_len and rank < best_rank):
+                    best_topic, best_len, best_rank = topic, len(k), rank
+                break  # 同一主题只取最长的那次命中即可
+    return best_topic
 
 
 class RuleEngine:

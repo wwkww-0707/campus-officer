@@ -834,7 +834,11 @@ with tab_dl:
 
 with tab_course:
     # ── 学习方案：基于学生档案的「专业」定制，点击卡片立即在本页生成 ──
-    from core.learning_plans import generate_learning_plan, generate_major_plan
+    from core.learning_plans import (
+        TOPIC_GROUPS,
+        generate_learning_plan,
+        generate_major_plan,
+    )
     from core.major_profiles import grade_stage, match_major
 
     # 读档案拿专业 / 年级 / 兴趣（后端不可用时降级为通用方案）
@@ -900,37 +904,35 @@ with tab_course:
         if _major else "以下为通用方案，填写专业后可获得针对性建议。"
     )
 
-    plan_cards = [
-        ("考研", "🎓"),
-        ("实习", "💼"),
-        ("四六级", "📜"),
-        ("计算机等级考试", "💻"),
-        ("教师资格证", "👩‍🏫"),
-        ("HCIA 认证", "🏅"),
-    ]
-
-    # 每行 3 张：6 个主题排两行。
-    # 挤在一行会让「计算机等级考试」「HCIA 认证」这类长标签被压成竖排单字。
+    # 按主题分组渲染：技术认证一组、升学与通用一组，组内每行 3 张。
+    # 挤在一行会让「计算机等级考试」「阿里云 ACP」这类长标签被压成竖排单字；
+    # 全部平铺 11 张又会让用户找不到重点，所以先分组再分行。
     PER_ROW = 3
-    for start in range(0, len(plan_cards), PER_ROW):
-        row_cards = plan_cards[start:start + PER_ROW]
-        cols = st.columns(PER_ROW)
-        for (name, icon), col in zip(row_cards, cols):
-            active = st.session_state.get("learning_topic") == name
-            with col:
-                st.markdown(
-                    f'<div class="co-plan-pick{" active" if active else ""}" '
-                    f'style="text-align:center;padding:var(--sp3) var(--sp2)">'
-                    f'<div style="font-size:22px;line-height:1.2">{icon}</div>'
-                    f'<div style="font-size:var(--fs-base);font-weight:600;'
-                    f'color:var(--c-ink);margin-top:var(--sp1);'
-                    f'white-space:nowrap">{name}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-                if st.button("生成方案", key=f"plan_{name}", use_container_width=True):
-                    st.session_state["learning_topic"] = name
-                    st.rerun()
+    for group_name, plan_cards in TOPIC_GROUPS:
+        st.markdown(
+            f'<div style="font-size:var(--fs-sm);font-weight:600;'
+            f'color:var(--c-ink-2);margin:var(--sp2) 0 var(--sp1)">{group_name}</div>',
+            unsafe_allow_html=True,
+        )
+        for start in range(0, len(plan_cards), PER_ROW):
+            row_cards = plan_cards[start:start + PER_ROW]
+            cols = st.columns(PER_ROW)
+            for (name, icon), col in zip(row_cards, cols):
+                active = st.session_state.get("learning_topic") == name
+                with col:
+                    st.markdown(
+                        f'<div class="co-plan-pick{" active" if active else ""}" '
+                        f'style="text-align:center;padding:var(--sp3) var(--sp2)">'
+                        f'<div style="font-size:22px;line-height:1.2">{icon}</div>'
+                        f'<div style="font-size:var(--fs-base);font-weight:600;'
+                        f'color:var(--c-ink);margin-top:var(--sp1);'
+                        f'white-space:nowrap">{name}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                    if st.button("生成方案", key=f"plan_{name}", use_container_width=True):
+                        st.session_state["learning_topic"] = name
+                        st.rerun()
 
     # ---- 点击后：立即生成并渲染完整方案 ----
     topic = st.session_state.get("learning_topic")
@@ -1040,6 +1042,11 @@ with tab_course:
             "计算机等级考试": "计算机二级怎么备考",
             "教师资格证": "教师资格证怎么备考",
             "HCIA 认证": "我想考 HCIA 证书，给我一个学习方案和时间规划",
+            "软考": "我想考软考，给我一个学习方案，并说明该报哪个科目",
+            "CDA": "我想考 CDA 数据分析师，给我一个学习方案",
+            "阿里云 ACP": "我想考阿里云 ACP 认证，给我一个学习方案",
+            "普通话": "普通话水平测试怎么备考，给我一个训练计划",
+            "雅思托福": "我想考雅思/托福，给我一个备考方案",
             "__major__": f"{_major}专业该怎么学，给我个学习方案",
         }
         c_ask1.caption("需要更个性化的安排？把方案转入对话，智能体可结合你的课表与时间预算继续细化。")
