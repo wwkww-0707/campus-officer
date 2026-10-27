@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campus Officer · 校园事务官 —— 期末汇报</title>
+<style>
+/* ============================================================
+   设计令牌：与 Streamlit 应用共用同一套配色与字阶
+   零外链：样式全部内联，教室电脑断网也能双击打开
+   ============================================================ */
+:root{
+    --ink:#0f172a; --ink2:#334155; --mute:#64748b; --faint:#94a3b8;
+    --bg:#ffffff; --bg2:#f8fafc; --bg3:#f1f5f9; --line:#e2e8f0;
+    --brand:#1d4ed8; --brand2:#3b82f6; --brandbg:#eff6ff; --brandline:#bfdbfe;
+    --ok:#15803d; --okbg:#f0fdf4; --warn:#b45309; --warnbg:#fffbeb;
+    --err:#be123c;
+    --r1:6px; --r2:8px; --r3:10px;
+}
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body{
+    font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB",-apple-system,"Segoe UI",sans-serif;
+    color:var(--ink); background:#e8ecf2;
+    -webkit-font-smoothing:antialiased;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+}
+code,pre,.mono{ font-family:"Cascadia Code",Consolas,"Courier New",monospace; }
+
+/* ---------- 画布 ---------- */
+.slide{
+    width:min(1280px,96vw); height:min(720px,94vh);
+    background:var(--bg); border-radius:14px;
+    box-shadow:0 10px 44px rgba(15,23,42,.16);
+    padding:32px 46px 26px 46px;
+    display:none; flex-direction:column; overflow:hidden;
+    position:relative;
+}
+.slide.active{ display:flex; }
+
+/* ---------- 页眉 / 页脚 ---------- */
+.eyebrow{
+    font-size:11.5px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase;
+    color:var(--brand); margin-bottom:5px;
+}
+.slide h2{ font-size:25px; line-height:1.3; margin:0 0 3px 0; letter-spacing:-.2px; }
+.slide h2 .sub{ font-size:13.5px; font-weight:400; color:var(--mute); margin-left:10px; letter-spacing:0; }
+.body{ flex:1 1 auto; min-height:0; overflow:hidden; }
+/* 架构图铺满可视高度，避免下方留大片空白 */
+.arch{ height:100%; justify-content:space-between; }
+.foot{
+    display:flex; justify-content:space-between; align-items:center;
+    border-top:1px solid var(--line); padding-top:7px; margin-top:8px;
+    font-size:11px; color:var(--faint); letter-spacing:.3px;
+}
+
+/* ---------- 通用排版 ---------- */
+.grid{ display:grid; gap:12px; }
+.g2{ grid-template-columns:1fr 1fr; }
+.g3{ grid-template-columns:repeat(3,1fr); }
+.g23{ grid-template-columns:1.15fr 1fr; }
+.g32{ grid-template-columns:1fr 1.15fr; }
+
+.card{ background:var(--bg2); border:1px solid var(--line); border-radius:var(--r3); padding:12px 14px; }
+.card h4{
+    margin:0 0 6px 0; font-size:13.5px; font-weight:700; color:var(--ink);
+    display:flex; align-items:center; gap:7px;
+}
+.card p{ margin:0; font-size:12.5px; line-height:1.62; color:var(--ink2); }
+.card .num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:19px; height:19px; border-radius:50%; background:var(--brand);
+    color:#fff; font-size:11px; font-weight:700; flex:0 0 auto;
+}
+.card.accent{ background:var(--brandbg); border-color:var(--brandline); }
+.card.ok{ background:var(--okbg); border-color:#bbf7d0; }
+.card.warn{ background:var(--warnbg); border-color:#fde68a; }
+
+ul.tight{ margin:0; padding-left:17px; }
+ul.tight li{ font-size:12.5px; line-height:1.7; color:var(--ink2); margin-bottom:1px; }
+ul.tight li b{ color:var(--ink); }
+ul.tight li::marker{ color:var(--brand); }
+
+/* ---------- 表格 ---------- */
+table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+th,td{ text-align:left; padding:6px 9px; border-bottom:1px solid var(--line); vertical-align:top; }
+th{
+    background:var(--bg3); color:var(--mute); font-weight:700;
+    font-size:10.5px; letter-spacing:.6px; text-transform:uppercase;
+}
+td b{ color:var(--ink); }
+td code{ font-size:11.5px; color:var(--brand); }
+tr:last-child td{ border-bottom:none; }
+
+/* ---------- 代码块 ---------- */
+.codebox{ border:1px solid var(--line); border-radius:var(--r2); overflow:hidden; background:#fbfcfe; }
+.codebox .fn{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--bg3); border-bottom:1px solid var(--line);
+    padding:5px 11px; font-size:10.5px; color:var(--mute); letter-spacing:.3px;
+}
+.codebox .fn .path{ font-family:"Cascadia Code",Consolas,monospace; color:var(--brand); font-weight:600; }
+pre{ margin:0; padding:11px 13px; overflow:hidden; font-size:12.4px; line-height:1.72; color:#1e293b; tab-size:4; }
+pre.sm{ font-size:11.6px; line-height:1.66; }
+.k{ color:#7c3aed; }   /* 关键字 */
+.s{ color:#b45309; }   /* 字符串 */
+.c{ color:#94a3b8; font-style:italic; }  /* 注释 */
+.f{ color:#1d4ed8; }   /* 函数名 */
+.n{ color:#0f766e; }   /* 常量 */
+
+/* ---------- 架构图（分层） ---------- */
+.arch{ display:flex; flex-direction:column; }
+.layer{ display:grid; grid-template-columns:96px 1fr; gap:10px; align-items:stretch; }
+.layer .lbl{
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:10.5px; font-weight:700; letter-spacing:.6px; color:var(--mute);
+    background:var(--bg3); border-radius:var(--r1); text-transform:uppercase;
+}
+.layer .boxes{ display:flex; gap:8px; }
+.abox{ flex:1 1 0; min-width:0; border:1px solid var(--line); background:#fff;
+       border-radius:var(--r1); padding:7px 9px; text-align:center; }
+.abox .t{ font-size:11.5px; font-weight:700; color:var(--ink); line-height:1.35; }
+.abox .d{ font-size:10px; color:var(--mute); margin-top:2px; line-height:1.4; }
+.abox.brand{ background:var(--brandbg); border-color:var(--brandline); }
+.abox.brand .t{ color:var(--brand); }
+.abox.dash{ border-style:dashed; background:var(--warnbg); border-color:#fde68a; }
+.conn{ text-align:center; font-size:10px; color:var(--faint); padding:1px 0; letter-spacing:.3px; }
+
+/* ---------- 标记 ---------- */
+.pill{
+    display:inline-block; font-size:10px; padding:1px 7px; border-radius:999px;
+    background:var(--bg3); color:var(--mute); border:1px solid var(--line);
+    margin-right:4px; letter-spacing:.3px;
+}
+.pill.b{ background:var(--brandbg); color:var(--brand); border-color:var(--brandline); }
+.pill.g{ background:var(--okbg); color:var(--ok); border-color:#bbf7d0; }
+
+.note{
+    border-left:3px solid var(--brand); background:var(--brandbg);
+    padding:8px 12px; border-radius:0 var(--r1) var(--r1) 0;
+    font-size:12.3px; line-height:1.58; color:var(--ink2);
+}
+.note b{ color:var(--brand); }
+.note.warn{ border-color:var(--warn); background:var(--warnbg); }
+.note.warn b{ color:var(--warn); }
+.note.ok{ border-color:var(--ok); background:var(--okbg); }
+.note.ok b{ color:var(--ok); }
+
+.stat{ display:flex; gap:9px; }
+.stat .s{ flex:1; background:var(--bg2); border:1px solid var(--line);
+          border-radius:var(--r2); padding:7px 10px; text-align:center; }
+.stat .s .v{ font-size:18px; font-weight:700; color:var(--brand); font-variant-numeric:tabular-nums; }
+.stat .s .k{ font-size:10px; color:var(--mute); margin-top:1px; letter-spacing:.3px; }
+
+/* ---------- 封面 ---------- */
+.cover{ justify-content:center; align-items:flex-start; padding-left:72px; }
+.cover .badge{
+    display:inline-block; font-size:11px; letter-spacing:1.6px; text-transform:uppercase;
+    color:var(--brand); background:var(--brandbg); border:1px solid var(--brandline);
+    padding:5px 13px; border-radius:999px; font-weight:700; margin-bottom:22px;
+}
+.cover h1{ font-size:44px; line-height:1.16; margin:0 0 12px 0; letter-spacing:-1px; }
+.cover h1 .en{ color:var(--brand); }
+.cover .desc{ font-size:15.5px; color:var(--mute); line-height:1.75; max-width:770px; margin-bottom:28px; }
+.cover .meta{ display:flex; gap:32px; flex-wrap:wrap; }
+.cover .meta .k{ font-size:10px; color:var(--faint); letter-spacing:1.2px; text-transform:uppercase; }
+.cover .meta .v{ font-size:14px; font-weight:600; color:var(--ink); margin-top:3px; }
+.cover .hint{ position:absolute; right:46px; bottom:30px; font-size:11px; color:var(--faint); }
+
+/* ---------- 导航 ---------- */
+.nav{
+    position:fixed; right:20px; bottom:16px; display:flex; gap:6px; align-items:center;
+    background:#fff; border:1px solid var(--line); border-radius:999px;
+    padding:4px 7px; box-shadow:0 4px 16px rgba(15,23,42,.1); z-index:10;
+}
+.nav button{ border:none; background:transparent; cursor:pointer; color:var(--ink2);
+             font-size:13px; width:24px; height:24px; border-radius:50%; line-height:1; }
+.nav button:hover{ background:var(--bg3); color:var(--brand); }
+.nav .cnt{ font-size:11px; color:var(--mute); font-variant-numeric:tabular-nums; padding:0 4px; }
+.progress{
+    position:fixed; left:0; top:0; height:3px; background:var(--brand);
+    transition:width .22s ease; z-index:11; border-radius:0 2px 2px 0;
+}
+
+/* ---------- 打印：每页一张 ---------- */
+@media print{
+    body{ background:#fff; display:block; overflow:visible; }
+    .slide{ display:flex !important; width:100%; height:100vh; border-radius:0;
+            box-shadow:none; page-break-after:always; }
+    .nav,.progress{ display:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<!-- ============================================================
+     01 封面
+     ============================================================ -->
+<section class="slide cover active">
+    <div class="badge">开源 AI 技术实践 · 期末考查</div>
+    <h1>Campus Officer<br><span class="en">校园事务官</span></h1>
+    <p class="desc">
+        基于 LangGraph 的校园事务智能体：把「选课组合、奖助学金资格、校规解读」<br>
+        从散落在五个系统里的查表动作，收成一句自然语言 —— 它会先规划、再调真实工具、最后产出可交付文件。
+    </p>
+    <div class="meta">
+        <div><div class="k">姓名</div><div class="v">韩思琰</div></div>
+        <div><div class="k">学号</div><div class="v">2025016</div></div>
+        <div><div class="k">选题路径</div><div class="v">路径 A · 技术栈较完整的智能体应用</div></div>
+        <div><div class="k">汇报时间</div><div class="v">2026-10-27</div></div>
+    </div>
+    <div class="hint">← → 翻页　·　共 12 页　·　8 分钟（4 分钟讲解 + 4 分钟演示）</div>
+</section>
+
+<!-- ============================================================
+     02 问题与用户
+     ============================================================ -->
+<section class="slide">
+    <div class="eyebrow">01 · 问题与用户</div>
+    <h2>学生办一件事，要自己拼五个系统<span class="sub">问题不在"查不到"，而在"拼不起来"</span></h2>
+    <div class="body">
+        <div class="grid g3" style="margin-top:8px">
+            <div class="card">
+                <h4><span class="num">1</span>信息散落</h4>
+                <p>课程目录在教务系统、通知在官网、校规在制度汇编、奖助条件在学工处文件、学分进度在个人页 ——
+                   一次选课要开五个标签页自己对照。</p>
+            </div>
+            <div class="card">
+                <h4><span class="num">2</span>条款有"保质期"</h4>
+                <p>校内制度都有<b>文号与生效期</b>。旧版《奖助学金办法》还在网上流传，
+                   学生按作废条款准备材料，白跑一趟。</p>
+            </div>
+            <div class="card">
+                <h4><span class="num">3</span>多约束同时满足</h4>
+                <p>「避开周三下午、不超过 20 学分、别和已选课冲突、优先值得上的」——
+                   四个约束一起满足，人脑穷举容易漏，跨专业选课时更明显。</p>
+            </div>
+        </div>
+
+        <div class="grid g23" style="margin-top:14px">
+            <div>
+                <div class="note">
+                    <b>用户</b>　在校本科生（本案为大数据专业大二学生），场景集中在
+                    <b>选课周</b>与<b>奖助申报期</b>两个时间窗。
+                </div>
+                <div class="note ok" style="margin-top:9px">
+                    <b>一句话价值</b>　把"我自己去查、去比、去填表"变成
+                    "说一句需求 → 它规划步骤 → 调真实工具 → 交一份能直接用的文件"。
+                </div>
+            </div>
+            <div class="card" style="background:#fff">
+                <h4>为什么不做一个"更强的搜索框"</h4>
+                <p style="margin-bottom:6px">搜索只解决"找得到"，解决不了"办得成"。本项目要跑通的是<b>事务链</b>：</p>
+                <ul class="tight">
+                    <li>选课要<b>求解组合</b>（约束满足），不是返回一堆课名</li>
+                    <li>资格要<b>逐项比对门槛</b>并给依据，不是给个链接</li>
+                    <li>政策要<b>核验时效</b>并标文号，不是复述一段话</li>
+                </ul>
+                <p style="margin-top:6px;color:var(--mute);font-size:11.5px">
+                    这也是选路径 A 而不是路径 B 的原因：核心价值在"工具 + 编排"，不在检索。
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="foot"><span>01 · 问题与用户</span><span>2 / 12</span></div>
+</section>
+
+<!-- ============================================================
+     03 定位与增量
+     ============================================================ -->
+<section class="slide">
+    <div class="eyebrow">02 · 项目定位</div>
+    <h2>相对课堂 demo 的增量<span class="sub">评分看的是"可指出的增量"，不是"换了皮肤的 demo_5"</span></h2>
+    <div class="body">
+        <table style="margin-top:4px">
+            <tr><th style="width:14%">维度</th><th style="width:33%">课堂 demo 的水平</th><th>本项目的实际做法</th></tr>
+            <tr><td><b>场景</b></td><td>通用问答 / 单一实验任务</td>
+                <td>校园事务三件套：<b>选课组合求解</b>、<b>奖助资格初筛</b>、<b>校规时效解读</b></td></tr>
+            <tr><td><b>业务后端</b></td><td>无，或返回假数据</td>
+                <td>自建 <b>FastAPI 服务 16 个接口</b> + SQLite，含容量 / 冲突 / 学分三重校验</td></tr>
+            <tr><td><b>工具</b></td><td>1～2 个示例工具</td>
+                <td><b>8 个自定义工具</b> + <b>MCP 服务器 3 个工具</b>（stdio 独立进程）</td></tr>
+            <tr><td><b>编排</b></td><td>单步调用 / create_react_agent</td>
+                <td><b>手写 LangGraph 5 节点状态图</b>：planner → agent ⇄ tools → reflect，含 rule 降级分支</td></tr>
+            <tr><td><b>知识库</b></td><td>无 / 少量文档</td>
+                <td><b>17 条带文号与生效期的条款</b>，BM25 检索 + <b>失效条款降权</b></td></tr>
+            <tr><td><b>Skill</b></td><td>用系统提示词代替</td>
+                <td><b>2 个符合 Agent Skills 规范</b>（SKILL.md frontmatter + 模板 + allowed-tools）</td></tr>
+            <tr><td><b>安全</b></td><td>无限制</td>
+                <td><b>产出物路径守卫</b>（越权显式拒绝）+ <b>选课二次确认</b></td></tr>
+            <tr><td><b>可靠性</b></td><td>无 Key 即不可用</td>
+                <td><b>三层降级</b>：百炼 → Ollama → 规则引擎，无 Key 也能完整演示</td></tr>
+        </table>
+        <div class="note" style="margin-top:11px">
+            <b>可验证</b>　以上每条都能在仓库里指出对应文件；第 5～9 页给出 5 段核心代码讲解。
+        </div>
+    </div>
+    <div class="foot"><span>02 · 项目定位</span><span>3 / 12</span></div>
+</section>
+
+<!-- ============================================================
+     04 总体架构
+     ============================================================ -->
+<section class="slide">
+    <div class="eyebrow">03 · 总体架构</div>
+    <h2>一张图看完：用户 → 界面 → Agent → 工具 / 数据</h2>
+    <div class="body">
+        <div class="arch">
+            <div class="layer">
+                <div class="lbl">用户</div>
+                <div class="boxes">
+                    <div class="abox"><div class="t">在校本科生</div><div class="d">浏览器 / 教室电脑，无需装客户端</div></div>
+                </div>
+            </div>
+            <div class="conn">↓ 自然语言提问　　↑ 三段式回答 + 可下载产出物</div>
+
+            <div class="layer">
+                <div class="lbl">界面层</div>
+                <div class="boxes">
+                    <div class="abox brand"><div class="t">Streamlit</div><div class="d">对话 · 日程 · 学习方案 · 会话</div></div>
+                    <div class="abox"><div class="t">规划 / 执行 / 结果</div><div class="d">工具调用过程实时可见</div></div>
+                    <div class="abox"><div class="t">档案与状态卡</div><div class="d">学号专业 / 模型层级 / 后端健康</div></div>
+                </div>
+            </div>
+            <div class="conn">↓ 用户输入 + 历史会话　　↑ 流式事件（tool_start / tool_end / token / done）</div>
+
+            <div class="layer">
+                <div class="lbl">编排层<br>LangGraph</div>
+                <div class="boxes">
+                    <div class="abox brand"><div class="t">planner</div><div class="d">拆步骤</div></div>
+                    <div class="abox brand"><div class="t">agent</div><div class="d">bind_tools 调模型</div></div>
+                    <div class="abox brand"><div class="t">tools</div><div class="d">真实执行 + 确认</div></div>
+                    <div class="abox brand"><div class="t">reflect</div><div class="d">确定性合规校验</div></div>
+                    <div class="abox dash"><div class="t">rule</div><div class="d">无模型时降级</div></div>
+                </div>
+            </div>
+            <div class="conn">↑ core/graph.py　·　agent ⇄ tools 循环，直到模型不再请求工具</div>
+
+            <div class="layer">
+                <div class="lbl">能力层</div>
+                <div class="boxes">
+                    <div class="abox"><div class="t">8 个本地工具</div><div class="d">课程 / 选课 / 冲突 / 政策 / 资格 / 产出</div></div>
+                    <div class="abox"><div class="t">MCP 服务器</div><div class="d">3 个工具，stdio 独立进程</div></div>
+                    <div class="abox"><div class="t">2 个 Skill</div><div class="d">政策解读 · 选课规划</div></div>
+                    <div class="abox"><div class="t">2 个子代理</div><div class="d">回溯求解 · 时间预算</div></div>
+                </div>
+            </div>
+            <div class="conn">↓ HTTP 调用 / 本地检索　　↑ 结构化结果</div>
+
+            <div class="layer">
+                <div class="lbl">数据与模型</div>
+                <div class="boxes">
+                    <div class="abox"><div class="t">FastAPI + SQLite</div><div class="d">16 个接口，12 门课程种子</div></div>
+                    <div class="abox"><div class="t">知识库 17 条</div><div class="d">带文号 / 生效期 / 来源</div></div>
+                    <div class="abox"><div class="t">outputs/</div><div class="d">清单 · 自检表 · 计划 · .ics</div></div>
+                    <div class="abox dash"><div class="t">百炼 → Ollama → 规则</div><div class="d">三层降级，无 Key 可跑</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="foot"><span>03 · 总体架构</span><span>4 / 12</span></div>
+</section>
+
+<!-- ============================================================
+     05 代码讲解① LangGraph 状态图
+     ============================================================ -->
+<section class="slide">
+    <div class="eyebrow">04 · 代码讲解 ①</div>
+    <h2>手写 LangGraph 状态图<span class="sub">core/graph.py:103-148</span></h2>
+    <div class="body">
+        <div class="grid g32" style="margin-top:2px;align-items:start">
+            <div class="codebox">
+                <div class="fn"><span class="path">core/graph.py</span><span>_build()</span></div>
+<pre><span class="k">def</span> <span class="f">_build</span>(self):
+    graph = <span class="f">StateGraph</span>(CampusState)
+
+    graph.<span class="f">add_node</span>(<span class="s">"planner"</span>, self._node_plan)   <span class="c"># 拆步骤</span>
+    graph.<span class="f">add_node</span>(<span class="s">"agent"</span>,   self._node_agent)  <span class="c"># 调模型</span>
+    graph.<span class="f">add_node</span>(<span class="s">"tools"</span>,   self._node_tools)  <span class="c"># 执行工具</span>
+    graph.<span class="f">add_node</span>(<span class="s">"reflect"</span>, self._node_reflect)<span class="c"># 合规校验</span>
+    graph.<span class="f">add_node</span>(<span class="s">"rule"</span>,    self._node_rule)   <span class="c"># 降级</span>
+
+    graph.<span class="f">add_edge</span>(START, <span class="s">"planner"</span>)
+    graph.<span class="f">add_conditional_edges</span>(
+        <span class="s">"planner"</span>, self._route_after_plan,
+        {<span class="s">"agent"</span>: <span class="s">"agent"</span>, <span class="s">"rule"</span>: <span class="s">"rule"</span>})
+    graph.<span class="f">add_conditional_edges</span>(
+        <span class="s">"agent"</span>, self._route_after_agent,
+        {<span class="s">"tools"</span>: <span class="s">"tools"</span>, <span class="s">"reflect"</span>: <span class="s">"reflect"</span>,
+         <span class="s">"rule"</span>: <span class="s">"rule"</span>})
+    graph.<span class="f">add_edge</span>(<span class="s">"tools"</span>, <span class="s">"agent"</span>)   <span class="c"># 结果回给模型</span>
+    graph.<span class="f">add_edge</span>(<span class="s">"reflect"</span>, END)
+    graph.<span class="f">add_edge</span>(<span class="s">"rule"</span>, END)
+    <span class="k">return</span> graph.<span class="f">compile</span>()</pre>
+            </div>
+
+            <div>
+                <div class="codebox">
+                    <div class="fn"><span class="path">core/graph.py</span><span>条件路由</span></div>
+<pre class="sm"><span class="k">def</span> <span class="f">_route_after_agent</span>(state):
+    <span class="k">if</span> state.<span class="f">get</span>(<span class="s">"model_failed"</span>):
+        <span class="k">return</span> <span class="s">"rule"</span>      <span class="c"># 模型中途挂</span>
+    <span class="k">if</span> state.<span class="f">get</span>(<span class="s">"force_reflect"</span>):
+        <span class="k">return</span> <span class="s">"reflect"</span>   <span class="c"># 轮次到顶</span>
+    resp = state.<span class="f">get</span>(<span class="s">"response"</span>)
+    <span class="k">if</span> resp <span class="k">and</span> resp.tool_calls:
+        <span class="k">return</span> <span class="s">"tools"</span>     <span class="c"># 继续调工具</span>
+    <span class="k">return</span> <span class="s">"reflect"</span></pre>
+                </div>
+                <div class="note warn" style="margin-top:10px;font-size:12px">
+                    <b>为什么不用 create_react_agent</b>：预构建封装把工具循环藏成黑盒，
+                    拿不到中间事件，也插不进二次确认与降级分支。
+                </div>
+                <ul class="tight" style="margin-top:8px">
+                    <li><b>messages / events 用 operator.add 归约</b>：节点只返回增量，框架负责累加</li>
+                    <li><b>三个出口</b>：还有工具→tools；说完话→reflect；模型失败→rule</li>
+                    <li>编译成真实图后，<b>节点可单独测试</b>，不依赖界面</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="foot"><span>04 · 代码讲解 ①</span><span>5 / 12</span></div>
+</section>
+
+<!-- ============================================================
+     06 代码讲解② 工具定义与注册
+     ============================================================ -->
+<section class="slide">
+    <div class="eyebrow">05 · 代码讲解 ②</div>
+    <h2>工具怎么定义、模型怎么会选中它<span class="sub">tools/courses.py:31 · tools/registry.py</span></h2>
+    <div class="body">
+        <div class="grid g23" style="margin-top:2px;align-items:start">
+            <div class="codebox">
+                <div class="fn"><span class="path">tools/courses.py</span><span>@tool 装饰器</span></div>
+<pre><span class="k">@tool</span>
+<span class="k">def</span> <span class="f">list_courses</span>(keyword: <span class="k">str</span> = <span class="s">""</span>,
+                category: <span class="k">str</span> = <span class="s">""</span>,
+                min_credits: <span class="k">float</span> = <span class="n">0</span>,
+                max_credits: <span class="k">float</span> = <span class="n">0</span>) -> <span class="k">str</span>:
+    <span class="s">"""查询本学期课程目录。可按关键词、类别
+    （必修/选修/通识）、学院、学分区间筛选。
+
+    Args:
+        keyword: 课程名/代码/教师关键词，留空返回全部。
+        category: 课程类别，留空不限。
+        min_credits: 最低学分，0 表示不限。
+    """</span>
+    <span class="k">try</span>:
+        data = <span class="f">get_client</span>().<span class="f">list_courses</span>(...)
+    <span class="k">except</span> BackendUnavailable <span class="k">as</span> exc:
+        <span class="k">return</span> <span class="s">f"【工具失败】{exc}"</span>   <span class="c"># 不抛异常</span></pre>
+            </div>
+
+            <div>
+                <div class="codebox">
+                    <div class="fn"><span class="path">tools/registry.py</span><span>集中注册</span></div>
+<pre class="sm"><span class="k">def</span> <span class="f">get_local_tools</span>():
+    <span class="s">"""8 个工具一次交给模型"""</span>
+    <span class="k">return</span> [
+        list_courses, get_my_enrollments,
+        check_schedule_conflict, enroll_course,
+        search_policy, get_my_profile,
+        check_eligibility, write_artifact,
+    ]</pre>
+                </div>
+                <ul class="tight" style="margin-top:9px">
+                    <li><b>docstring 就是"使用说明书"</b>：模型据此判断何时调、传什么参数 ——
+                        不是我写关键词 if-else</li>
+                    <li><b>类型注解 + Args</b> → 自动生成 JSON Schema，参数校验交给框架</li>
+                    <li><b>失败返回文本而非抛异常</b>：模型能读懂「工具失败」并换策略或如实告知</li>
+                    <li><b>注册表集中管理</b>：新增工具只改一处，界面「工具清单」自动同步</li>
+                </ul>
+            </div>
+        </div>
+        <div class="note warn" style="margin-top:9px;font-size:12px">
+            <b>老师常问</b>：工具如果不调用、模型会怎样？→ 它只能凭上下文"编"课程名与截止日期，
+            也答不出容量与冲突结论。所以本项目把<b>确定性业务规则</b>全放进工具，模型只做理解与表达。
+        </div>
+    </div>
+    <div class="foot"><span>05 · 代码讲解 ②</span><span>6 / 12</span></div>
+</section>
+
+<!-- ============================================================
+     07 代码讲解③ 确定性冲突检测
+     ============================================================ -->
+<section class="slide">
+    <div class="eyebrow">06 · 代码讲解 ③</div>
+    <h2>冲突检测：交给代码，不交给模型<span class="sub">backend/schedule.py:19-66</span></h2>
+    <div class="body">
+        <div class="grid g2" style="margin-top:2px;align-items:start">
+            <div class="codebox">
+                <div class="fn"><span class="path">backend/schedule.py</span><span>闭区间求交</span></div>
+<pre><span class="k">def</span> <span class="f">slots_overlap</span>(a: Timeslot, b: Timeslot) -> <span class="k">bool</span>:
+    <span class="s">"""同一天且节次闭区间有交集即为冲突。"""</span>
+    <span class="k">if</span> a.weekday != b.weekday:
+        <span class="k">return</span> <span class="k">False</span>
+    <span class="k">return</span> (a.start_period &lt;= b.end_period
+            <span class="k">and</span> b.start_period &lt;= a.end_period)
+    <span class="c"># 1-2 节 与 2-3 节 共享第 2 节 → 算冲突</span>
+
+
+<span class="k">def</span> <span class="f">detect_conflicts</span>(courses):
+    <span class="s">"""两两检测，combinations 保证每对只比一次"""</span>
+    <span class="k">return</span> [p <span class="k">for</span> ca, cb <span class="k">in</span> <span class="f">combinations</span>(courses, <span class="n">2</span>)
+            <span class="k">if</span> (p := <span class="f">find_conflict_pair</span>(ca, cb))]</pre>
+            </div>
+            <div>
+                <div class="note warn">
+                    <b>最容易讲错的地方：边界相接</b>　若写成开区间（<code>&lt;</code>），
+                    1-2 节与 2-3 节会被判成"不冲突"，学生按此选课就会出现同一天第 2 节撞车。
+                    必须用<b>闭区间</b>才能覆盖共享节次。
+                </div>
+                <ul class="tight" style="margin-top:9px">
+                    <li><b>为什么不让模型判</b>：模型对边界相接极易漏判，且同一问题两次可能不同答案 ——
+                        这是确定性规则，必须可复现</li>
+                    <li><b>复杂度</b> O(n² × slots²)：12 门课不足 100 次比较，教学规模完全够用</li>
+                    <li><b>结果可解释</b>：返回具体冲突片段（周几、第几节、教室），界面直接展示</li>
+                    <li>被<b>工具</b>（check_schedule_conflict）与<b>子代理</b>（回溯求解）共用</li>
+                </ul>
+                <div class="note ok" style="margin-top:8px;font-size:12px">
+                    <b>测试覆盖</b>　tests/test_schedule.py 断言了区间相接、包含、不相交、
+                    多时段、三课两两冲突等边界情况。
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="foot"><span>06 · 代码讲解 ③</span><span>7 / 12</span></div>
+</section>
+
+<!-- ============================================================
+     08 代码讲解④ 知识库检索与时效
+     ============================================================ -->
+<section class="slide">
+    <div class="eyebrow">07 · 代码讲解 ④</div>
+    <h2>知识库：先降权，再排序<span class="sub">core/knowledge.py:38 · 163-205</span></h2>
+    <div class="body">
+        <div class="grid g23" style="margin-top:2px;align-items:start">
+            <div class="codebox">
+                <div class="fn"><span class="path">core/knowledge.py</span><span>BM25 + 失效降权</span></div>
+<pre><span class="n">EXPIRED_PENALTY</span> = <span class="n">0.25</span>   <span class="c"># 已失效条款的降权系数</span>
+
+<span class="k">def</span> <span class="f">search</span>(self, query, top_k=<span class="n">5</span>, category=<span class="k">None</span>):
+    q = <span class="f">tokenize</span>(query)          <span class="c"># jieba 分词</span>
+    scored = [(self.<span class="f">_bm25</span>(q, d), d)
+              <span class="k">for</span> d <span class="k">in</span> self.docs]
+
+    weighted = []
+    <span class="k">for</span> score, doc <span class="k">in</span> scored:
+        note = <span class="s">""</span>
+        <span class="k">if</span> doc.clause.is_expired:      <span class="c"># ① 先降权</span>
+            score *= <span class="n">EXPIRED_PENALTY</span>
+            note = <span class="s">f"已于 {doc.clause.effective_to} 失效"</span>
+        weighted.<span class="f">append</span>((score, doc, note))
+
+    weighted.<span class="f">sort</span>(key=<span class="k">lambda</span> x: x[<span class="n">0</span>],
+                  reverse=<span class="k">True</span>)      <span class="c"># ② 再排序</span>
+    <span class="k">return</span> [...][:top_k]</pre>
+            </div>
+            <div>
+                <div class="note">
+                    <b>踩过的坑</b>　最初写成"先排序取 top_k，再对结果降权"，
+                    失效条款仍排第一 —— 降权发生在截断之后，等于没降。
+                    改成<b>先降权再排序</b>才真正沉底。
+                </div>
+                <ul class="tight" style="margin-top:9px">
+                    <li><b>条款元数据</b>：文号、生效日、失效日、来源 —— 回答可溯源</li>
+                    <li><b>三类标注</b>：真实条款 / 校内演示样例 / 已失效，界面分别提示</li>
+                    <li><b>17 条条款</b>覆盖奖助、学籍、选课、四六级、考研、宿舍等</li>
+                    <li>库里故意保留<b>一条已失效旧办法</b>，用来演示降权机制</li>
+                </ul>
+                <div class="note warn" style="margin-top:8px;font-size:12px">
+                    <b>合规底线</b>　任何回答都附「以学校官方最新文件为准」，
+                    不把检索结果包装成官方结论。
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="foot"><span>07 · 代码讲解 ④</span><span>8 / 12</span></div>
+</section>
+
+<!-- ============================================================
+     09 代码讲解⑤ MCP + Skill
+     ============================================================ -->
+<section class="slide">
+    <div class="eyebrow">08 · 代码讲解 ⑤</div>
+    <h2>MCP 服务器与 Skill 规范<span class="sub">mcp_server/server.py · skills/policy-explainer/SKILL.md</span></h2>
+    <div class="body">
+        <div class="grid g2" style="margin-top:2px;align-items:start">
+            <div>
+                <div class="codebox">
+                    <div class="fn"><span class="path">mcp_server/server.py</span><span>stdio · 3 个工具</span></div>
+<pre class="sm"><span class="k">from</span> mcp.server.fastmcp <span class="k">import</span> FastMCP
+
+mcp = <span class="f">FastMCP</span>(<span class="s">"campus-policy-server"</span>)
+
+<span class="k">@mcp.tool</span>()
+<span class="k">def</span> <span class="f">get_deadlines</span>(keyword: <span class="k">str</span> = <span class="s">""</span>) -> <span class="k">str</span>:
+    <span class="s">"""查询各类校务事项的截止时间。"""</span>
+    items = <span class="f">get_searcher</span>().<span class="f">deadlines</span>(keyword)
+    ...
+
+<span class="c"># 运行：python mcp_server/server.py</span>
+<span class="c"># Agent 经 stdio 自动拉起，core/mcp.py 常驻会话</span></pre>
+                </div>
+                <ul class="tight" style="margin-top:8px">
+                    <li><b>与本地工具的分工</b>：本地工具走 FastAPI（事务型），
+                        MCP 走知识库（只读检索型）</li>
+                    <li><b>常驻会话</b>：首调约 1.4 s（拉起进程），后续约 2 ms —— 启动开销被摊薄</li>
+                    <li>可用 MCP Inspector 独立验证连通性，不依赖主应用</li>
+                </ul>
+            </div>
+
+            <div>
+                <div class="codebox">
+                    <div class="fn"><span class="path">skills/policy-explainer/SKILL.md</span><span>Agent Skills 规范</span></div>
+<pre class="sm"><span class="c">---</span>
+<span class="k">name</span>: policy-explainer
+<span class="k">description</span>: 当用户咨询奖助学金、困难认定、资助政策、
+  选课规定、学分与考勤等校规问题时使用。指导智能体基于
+  带文号与生效期的知识库作答…
+<span class="k">allowed-tools</span>: search_policy, get_my_profile,
+  check_eligibility, write_artifact
+<span class="c">---</span></pre>
+                </div>
+                <div class="note" style="margin-top:9px;font-size:12px">
+                    <b>Skill 与系统提示词的区别</b>（老师高频提问）：系统提示词每轮都进上下文、
+                    篇幅有限；Skill 是<b>按需加载</b>的能力包，能带模板文件、能声明
+                    <code>allowed-tools</code> 收窄可用工具，职责边界更清楚。
+                </div>
+                <ul class="tight" style="margin-top:7px">
+                    <li>2 个 Skill：<b>policy-explainer</b>（政策解读 + 材料自检表）、
+                        <b>course-planning</b>（选课规划 + 清单）</li>
+                    <li>各带 Markdown 模板，产出物格式稳定，不靠模型自由发挥</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="foot"><span>08 · 代码讲解 ⑤</span><span>9 / 12</span></div>
+</section>
+
+<!-- ============================================================
+     10 与课堂实验的关系 + 降级链
+     ============================================================ -->
+<section class="slide">
+    <div class="eyebrow">09 · 与课堂实验的关系</div>
+    <h2>用了哪几块课堂能力，自己加了什么<span class="sub">对照 demo_1 ~ demo_5</span></h2>
+    <div class="body">
+        <div class="grid g32" style="margin-top:2px;align-items:start">
+            <table>
+                <tr><th style="width:16%">实验</th><th style="width:36%">课堂内容</th><th>本项目落点</th></tr>
+                <tr><td><b>demo_1</b></td><td>开源模型、Streamlit、可选 RAG</td><td>四标签界面 + 本地知识库检索</td></tr>
+                <tr><td><b>demo_2</b></td><td>OpenAI 兼容接口、Tool Calling、流式</td><td>8 工具 + 流式 token / 工具事件</td></tr>
+                <tr><td><b>demo_3/4</b></td><td>百炼等云模型、密钥与环境变量</td><td>三层降级链，Key 只走 <code>.env</code></td></tr>
+                <tr><td><b>demo_5</b></td><td>Agent 框架、Skills、MCP、子代理、记忆</td><td>LangGraph 5 节点 + 2 Skill + MCP + 2 子代理 + AGENTS.md</td></tr>
+            </table>
+            <div>
+                <div class="card accent">
+                    <h4>自己加的增量（三处）</h4>
+                    <p style="line-height:1.7">
+                        <b>① 新场景</b>　校园事务，自建 FastAPI 后端 16 个接口<br>
+                        <b>② 新工具</b>　8 个业务工具 + 3 个 MCP 工具，均真实调用<br>
+                        <b>③ 新 Skill</b>　policy-explainer / course-planning，带模板
+                    </p>
+                </div>
+                <div class="codebox" style="margin-top:9px">
+                    <div class="fn"><span class="path">core/llm.py</span><span>三层降级</span></div>
+<pre class="sm">百炼（真实模型）
+  ↓ 无 Key / 调用失败
+Ollama（本地开源模型）
+  ↓ 未安装
+规则引擎（纯本地，仍调真实工具）</pre>
+                </div>
+                <div class="note ok" style="margin-top:8px;font-size:12px">
+                    降级不是"降级成假数据"：规则层依然调用<b>同一套真实工具</b>，
+                    所以断网教室也能完整演示主路径。
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="foot"><span>09 · 与课堂实验的关系</span><span>10 / 12</span></div>
+</section>
+
+<!-- ============================================================
+     11 思政与合规
+     ============================================================ -->
+<section class="slide">
+    <div class="eyebrow">10 · 思政与合规</div>
+    <h2>数据从哪来、边界在哪<span class="sub">也是评分表"问答与规范"的观察点</span></h2>
+    <div class="body">
+        <div class="grid g2" style="margin-top:4px;align-items:start">
+            <div>
+                <div class="card">
+                    <h4>选题正当性</h4>
+                    <p>服务校园治理中的正当需求：<b>信息可核验、办事少跑腿</b>。
+                       不做代写、不做监控、不编造政策结论。</p>
+                </div>
+                <div class="card" style="margin-top:9px">
+                    <h4>数据来源可核验</h4>
+                    <ul class="tight">
+                        <li>政策条款：<b>每条带文号 + 生效期 + 来源</b>，失效条款降权并明示</li>
+                        <li>校园通知：同步自学校官网，<b>保留原文链接</b>可点回</li>
+                        <li>学生档案：<b>全部虚构样例</b>，界面注明"演示用"</li>
+                    </ul>
+                </div>
+                <div class="card" style="margin-top:9px">
+                    <h4>隐私最小化</h4>
+                    <p>只保留学号、专业、GPA、困难认定等<b>办事必需字段</b>；
+                       不采集身份证、手机号、住址；数据存本地 SQLite，不上传。</p>
+                </div>
+            </div>
+
+            <div>
+                <div class="card warn">
+                    <h4>权限隔离：Agent 只能写 outputs/</h4>
+                    <div class="codebox" style="margin-top:6px;background:#fff">
+                        <div class="fn"><span class="path">core/artifacts.py</span><span>路径守卫</span></div>
+<pre class="sm"><span class="k">if</span> <span class="s">".."</span> <span class="k">in</span> raw <span class="k">or</span> <span class="s">"/"</span> <span class="k">in</span> raw \
+   <span class="k">or</span> <span class="s">"\\"</span> <span class="k">in</span> raw <span class="k">or</span> <span class="s">":"</span> <span class="k">in</span> raw:
+    <span class="k">raise</span> <span class="f">PermissionError</span>(<span class="s">"仅允许写入
+        outputs/ 内的纯文件名"</span>)</pre>
+                    </div>
+                    <p style="margin-top:6px">
+                        <b>显式拒绝</b>而不是静默改写 —— 越权意图必须被拦下并告知调用方。
+                        选课等写操作另有<b>二次确认</b>：模型只能提出，执行权在用户。
+                    </p>
+                </div>
+                <div class="note warn" style="margin-top:9px">
+                    <b>使用边界</b>　资格判定只做<b>初筛</b>，最终以学校认定为准；
+                    政策解读标注"以官方最新文件为准"；不替代辅导员与教务处的正式结论。
+                </div>
+                <div class="note" style="margin-top:8px;font-size:12px">
+                    <b>密钥管理</b>　<code>.env</code> 已进 <code>.gitignore</code>，仓库只提交
+                    <code>.env.example</code>；提交前做过全仓扫描，无 Key 泄漏。
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="foot"><span>10 · 思政与合规</span><span>11 / 12</span></div>
+</section>
+
+<!-- ============================================================
+     12 演示步骤 + 不足与改进
+     ============================================================ -->
+<section class="slide">
+    <div class="eyebrow">11 · 演示与改进</div>
+    <h2>现场怎么演示，以及它还不够好的地方</h2>
+    <div class="body">
+        <div class="grid g32" style="margin-top:4px;align-items:start">
+            <div>
+                <div class="card accent">
+                    <h4>启动（一条命令）</h4>
+                    <p class="mono" style="font-size:12.5px">start.bat</p>
+                    <p style="margin-top:3px;color:var(--mute);font-size:11.5px">
+                        自动装依赖 → 起 FastAPI(8811) → 起 Streamlit(8501)
+                    </p>
+                </div>
+                <table style="margin-top:9px">
+                    <tr><th style="width:6%">#</th><th>演示话术</th><th style="width:27%">看什么</th></tr>
+                    <tr><td>1</td><td>下学期能选哪些课？避开周三下午，挑 3 门最值得上的，别超 20 学分</td>
+                        <td>4 步规划 + 回溯求解 + 生成清单</td></tr>
+                    <tr><td>2</td><td>我 GPA 3.6，能申请哪些奖助学金？要交什么材料？</td>
+                        <td>逐项判定 + 文号溯源 + 材料清单</td></tr>
+                    <tr><td>3</td><td>《人工智能导论》和《数据结构与算法》冲突吗？</td>
+                        <td>确定性算法结论，可当堂复现</td></tr>
+                    <tr><td>4</td><td>帮我把选课方案整理成一份清单文件</td>
+                        <td>产出物落盘，侧栏可下载</td></tr>
+                </table>
+                <div class="note" style="margin-top:8px;font-size:12px">
+                    <b>时间分配</b>　4 分钟讲这份幻灯片（重点停在第 5、7 页代码）
+                    + 4 分钟演示 2～3 条话术 + 2 分钟问答。
+                </div>
+            </div>
+
+            <div>
+                <div class="card warn">
+                    <h4>已知不足</h4>
+                    <ul class="tight">
+                        <li><b>真实模型需自备 Key</b>：无 Key 时走规则引擎，语言表达偏模板化</li>
+                        <li><b>官网同步依赖本机 Edge</b>：换机器需确认浏览器存在</li>
+                        <li><b>知识库仅 17 条</b>：只覆盖常见校务，专业细则未收录</li>
+                        <li><b>无多用户鉴权</b>：当前假设单人使用，未做账号体系</li>
+                        <li><b>单机 SQLite</b>：并发能力有限，不适合真实校级部署</li>
+                    </ul>
+                </div>
+                <div class="card ok" style="margin-top:9px">
+                    <h4>后续改进</h4>
+                    <ul class="tight">
+                        <li>接入学校真实教务 API，替换演示数据</li>
+                        <li>知识库扩到全校制度汇编，加新旧版本差异提示</li>
+                        <li>加登录与权限分层，产出物按学生隔离</li>
+                        <li>把"二次确认"扩展到所有写操作，并留审计日志</li>
+                    </ul>
+                </div>
+                <div class="stat" style="margin-top:9px">
+                    <div class="s"><div class="v">161</div><div class="k">项测试</div></div>
+                    <div class="s"><div class="v">11</div><div class="k">工具</div></div>
+                    <div class="s"><div class="v">17</div><div class="k">条款</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="grid" style="grid-template-columns:repeat(6,1fr);gap:7px;margin-top:10px">
+            <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>问题与场景</b> 10<br><span style="color:var(--mute)">三件套事务闭环</span></p></div>
+            <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>智能体与工具</b> 25<br><span style="color:var(--mute)">11 工具均真实调用</span></p></div>
+            <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>工程与仓库</b> 20<br><span style="color:var(--mute)">README + 161 测试</span></p></div>
+            <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>界面与演示</b> 15<br><span style="color:var(--mute)">执行过程可见</span></p></div>
+            <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>HTML 与表达</b> 15<br><span style="color:var(--mute)">12 页 · 零外链</span></p></div>
+            <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>问答与规范</b> 15<br><span style="color:var(--mute)">5 段代码可指认</span></p></div>
+        </div>
+    </div>
+    <div class="foot"><span>11 · 演示与改进</span><span>12 / 12</span></div>
+</section>
+
+<!-- 导航 -->
+<div class="nav">
+    <button id="prev" title="上一页（←）">‹</button>
+    <span class="cnt"><span id="cur">1</span> / <span id="total">12</span></span>
+    <button id="next" title="下一页（→）">›</button>
+</div>
+
+<script>
+/* 极简翻页：键盘 / 按钮 / 触摸滑动，全部本地，无外部依赖 */
+(function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var progress = document.getElementById('progress');
+    var curEl = document.getElementById('cur');
+    var idx = 0;
+
+    document.getElementById('total').textContent = slides.length;
+
+    function show(n) {
+        if (n < 0) n = 0;
+        if (n > slides.length - 1) n = slides.length - 1;
+        slides[idx].classList.remove('active');
+        idx = n;
+        slides[idx].classList.add('active');
+        curEl.textContent = idx + 1;
+        progress.style.width = ((idx + 1) / slides.length * 100) + '%';
+        history.replaceState(null, '', '#' + (idx + 1));  // 刷新后停在原页
+    }
+
+    document.getElementById('prev').onclick = function () { show(idx - 1); };
+    document.getElementById('next').onclick = function () { show(idx + 1); };
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+            show(idx + 1); e.preventDefault();
+        } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+            show(idx - 1); e.preventDefault();
+        } else if (e.key === 'Home') { show(0); e.preventDefault(); }
+        else if (e.key === 'End') { show(slides.length - 1); e.preventDefault(); }
+    });
+
+    // 触摸滑动（现场用平板时方便）
+    var x0 = null;
+    document.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; });
+    document.addEventListener('touchend', function (e) {
+        if (x0 === null) return;
+        var dx = e.changedTouches[0].clientX - x0;
+        if (Math.abs(dx) > 50) show(idx + (dx < 0 ? 1 : -1));
+        x0 = null;
+    });
+
+    var start = parseInt((location.hash || '').replace('#', ''), 10);
+    show(isNaN(start) ? 0 : start - 1);
+})();
+</script>
+</body>
+</html>

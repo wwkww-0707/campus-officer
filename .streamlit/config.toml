@@ -1,0 +1,19 @@
+# Campus Officer Streamlit 主题
+# 部署后通过此文件统一全局视觉风格，无需改代码
+
+[server]
+port = 8501
+address = "127.0.0.1"
+headless = true
+enableCORS = false
+
+[theme]
+base = "light"
+primaryColor = "#1d4ed8"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f5f7fa"
+textColor = "#0f172a"
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false

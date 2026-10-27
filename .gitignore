@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# ⚠️ 密钥：绝不入库
+.env
+.env.local
+*.key
+*.pem
+
+# 数据库与运行时数据
+data/*.db
+data/*.sqlite
+*.sqlite3
+data/_backup/
+*.bak
+
+# 临时调试脚本与临时截图（不属于交付物）
+_*.py
+_*.png
+
+# 产出物：保留目录与样例，忽略实际生成物
+outputs/*
+!outputs/.gitkeep
+!outputs/README.md
+
+# 模型权重与缓存
+.cache/
+models/
+*.bin
+*.safetensors
+*.pt
+
+# 日志
+*.log
+logs/
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# 录屏与截图（体积大，按需保留）
+*.mp4
+screenshots/*.png
