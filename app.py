@@ -771,145 +771,151 @@ with st.sidebar:
                 st.rerun()
 
 
-    # ── 三个标签页：日程 / 学习方案 / 会话 ──
-    tab_dl, tab_course, tab_sess = st.tabs(["⏰ 日程", "📚 学习方案", "🗂 会话"])
+# ── 三个标签页：日程 / 学习方案 / 会话 ──
+tab_dl, tab_course, tab_sess = st.tabs(["⏰ 日程", "📚 学习方案", "🗂 会话"])
 
-    with tab_dl:
-        # ── 同步学校信息源 ──
-        sync_col1, sync_col2 = st.columns([3, 1])
-        with sync_col1:
-            st.markdown(
-                '<div style="font-size:11px;color:var(--c-mute)">'
-                '同步杉达学院官网（news.sandau.edu.cn）的最新通知 / 讲座 / 活动</div>',
-                unsafe_allow_html=True,
-            )
-        with sync_col2:
-            if st.button("🔄 同步官网", use_container_width=True, key="sandau_sync_btn"):
-                with st.spinner("正在抓取官网信息…"):
+with tab_dl:
+    # ── 同步学校信息源 ──
+    sync_col1, sync_col2 = st.columns([3, 1])
+    with sync_col1:
+        st.markdown(
+            '<div style="font-size:11px;color:var(--c-mute)">'
+            '同步杉达学院官网（news.sandau.edu.cn）的最新通知 / 讲座 / 活动</div>',
+            unsafe_allow_html=True,
+        )
+    with sync_col2:
+        if st.button("🔄 同步官网", use_container_width=True, key="sandau_sync_btn"):
+            with st.spinner("正在抓取官网信息…"):
+                try:
+                    result = get_client().sync_sandau()
+                    st.toast(f"同步完成：新增 {result.get('added', 0)} 条")
+                    st.rerun()
+                except Exception as exc:
+                    st.toast(f"同步失败：{exc}")
+
+    # ── 学校公告（新政策 / 活动 / 通知）──
+    if not announcements:
+        st.caption("暂无公告。点上方「🔄 同步官网」拉取杉达学院最新信息，或下方「➕ 发布公告」手动录入。")
+    else:
+        # 活动按日期分组展示，政策/通知直接列出
+        dated = [a for a in announcements if a.get("event_date")]
+        undated = [a for a in announcements if not a.get("event_date")]
+        for a in dated[:12]:
+            _render_announcement_card(a)
+        for a in undated[:12]:
+            _render_announcement_card(a)
+
+    # ── 录入公告 ──
+    with st.expander("➕ 发布公告", expanded=False):
+        with st.form("ann_form"):
+            ann_title = st.text_input("标题")
+            ann_cat = st.selectbox("类别", ["政策", "活动", "通知", "其他"])
+            ann_date = st.text_input("活动日期（活动类填写，格式 YYYY-MM-DD）", value="")
+            ann_content = st.text_area("正文", height=90)
+            ann_source = st.text_input("来源（如 学校官网 / 教务处）")
+            ann_url = st.text_input("原文链接（可选，填写后卡片可直接点击跳转）")
+            if st.form_submit_button("发布", type="primary"):
+                if ann_title.strip():
                     try:
-                        result = get_client().sync_sandau()
-                        st.toast(f"同步完成：新增 {result.get('added', 0)} 条")
+                        get_client().add_announcement(
+                            title=ann_title.strip(),
+                            category=ann_cat,
+                            content=ann_content,
+                            source=ann_source,
+                            event_date=ann_date.strip(),
+                            url=ann_url.strip(),
+                        )
+                        st.toast("公告已发布")
                         st.rerun()
                     except Exception as exc:
-                        st.toast(f"同步失败：{exc}")
+                        st.toast(f"发布失败：{exc}")
+                else:
+                    st.toast("标题不能为空")
 
-        # ── 学校公告（新政策 / 活动 / 通知）──
-        if not announcements:
-            st.caption("暂无公告。点上方「🔄 同步官网」拉取杉达学院最新信息，或下方「➕ 发布公告」手动录入。")
-        else:
-            # 活动按日期分组展示，政策/通知直接列出
-            dated = [a for a in announcements if a.get("event_date")]
-            undated = [a for a in announcements if not a.get("event_date")]
-            for a in dated[:12]:
-                _render_announcement_card(a)
-            for a in undated[:12]:
-                _render_announcement_card(a)
+with tab_course:
+    # ── 学习方案：基于学生档案的「专业」定制，点击卡片立即在本页生成 ──
+    from core.learning_plans import generate_learning_plan, generate_major_plan
+    from core.major_profiles import grade_stage, match_major
 
-        # ── 录入公告 ──
-        with st.expander("➕ 发布公告", expanded=False):
-            with st.form("ann_form"):
-                ann_title = st.text_input("标题")
-                ann_cat = st.selectbox("类别", ["政策", "活动", "通知", "其他"])
-                ann_date = st.text_input("活动日期（活动类填写，格式 YYYY-MM-DD）", value="")
-                ann_content = st.text_area("正文", height=90)
-                ann_source = st.text_input("来源（如 学校官网 / 教务处）")
-                ann_url = st.text_input("原文链接（可选，填写后卡片可直接点击跳转）")
-                if st.form_submit_button("发布", type="primary"):
-                    if ann_title.strip():
-                        try:
-                            get_client().add_announcement(
-                                title=ann_title.strip(),
-                                category=ann_cat,
-                                content=ann_content,
-                                source=ann_source,
-                                event_date=ann_date.strip(),
-                                url=ann_url.strip(),
-                            )
-                            st.toast("公告已发布")
-                            st.rerun()
-                        except Exception as exc:
-                            st.toast(f"发布失败：{exc}")
-                    else:
-                        st.toast("标题不能为空")
+    # 读档案拿专业 / 年级 / 兴趣（后端不可用时降级为通用方案）
+    try:
+        _profile = get_client().get_current_profile()
+    except Exception:
+        _profile = {}
+    _major = _profile.get("department", "") or ""
+    _grade = _profile.get("grade", "") or ""
+    _interests = _profile.get("interests", []) or []
+    _stage = grade_stage(_grade)
+    _mprof = match_major(_major)
 
-    with tab_course:
-        # ── 学习方案：基于学生档案的「专业」定制，点击卡片立即在本页生成 ──
-        from core.learning_plans import generate_learning_plan, generate_major_plan
-        from core.major_profiles import grade_stage, match_major
-
-        # 读档案拿专业 / 年级 / 兴趣（后端不可用时降级为通用方案）
-        try:
-            _profile = get_client().get_current_profile()
-        except Exception:
-            _profile = {}
-        _major = _profile.get("department", "") or ""
-        _grade = _profile.get("grade", "") or ""
-        _interests = _profile.get("interests", []) or []
-        _stage = grade_stage(_grade)
-        _mprof = match_major(_major)
-
-        # 专业定制横幅：把"为什么这套方案是给你的"讲清楚
-        if _major:
-            _matched = _mprof.name != "通用"
-            st.markdown(
-                f'<div class="co-major-banner">'
-                f'<div class="eyebrow">已按你的档案定制</div>'
-                f'<div class="title">'
-                f'{_major}{f" · {_grade}" if _grade else ""}{f" · 当前{_stage}" if _stage else ""}</div>'
-                f'<div class="desc">'
-                f'{"兴趣方向：" + "、".join(_interests) if _interests else ""}'
-                f'{"　｜　已匹配「" + _mprof.name + "」专业画像，方案按该专业的核心课与关键能力生成" if _matched else "　｜　该专业暂无专用画像，已按通用模板生成"}'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-
-        # ── 第一组：专业学习方案（最突出） ──
+    # 专业定制横幅：把"为什么这套方案是给你的"讲清楚
+    if _major:
+        _matched = _mprof.name != "通用"
         st.markdown(
-            '<div class="co-section">🎯 你的专业学习方案</div>',
+            f'<div class="co-major-banner">'
+            f'<div class="eyebrow">已按你的档案定制</div>'
+            f'<div class="title">'
+            f'{_major}{f" · {_grade}" if _grade else ""}{f" · 当前{_stage}" if _stage else ""}</div>'
+            f'<div class="desc">'
+            f'{"兴趣方向：" + "、".join(_interests) if _interests else ""}'
+            f'{"　｜　已匹配「" + _mprof.name + "」专业画像，方案按该专业的核心课与关键能力生成" if _matched else "　｜　该专业暂无专用画像，已按通用模板生成"}'
+            f'</div>',
             unsafe_allow_html=True,
         )
-        _major_active = st.session_state.get("learning_topic") == "__major__"
-        # 卡片标题用**学生自己填写的专业名**；若命中的画像名与填写值不同，
-        # 在副标题里注明"按哪个画像生成"，避免出现"我写大数据却显示计算机"的误解。
-        _display_major = _major or _mprof.name
-        _pick_sub = "按专业核心课与关键能力生成，从当前学年排到毕业"
-        if _major and _mprof.name != "通用" and _mprof.name != _major:
-            _pick_sub = f"已匹配「{_mprof.name}」专业画像 · " + _pick_sub
-        mc1, mc2 = st.columns([3, 1], vertical_alignment="center")
-        with mc1:
-            st.markdown(
-                f'<div class="co-plan-pick{" active" if _major_active else ""}">'
-                f'<div class="t">🎓 {_display_major} · 核心能力强化</div>'
-                f'<div class="s">{_pick_sub}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-        with mc2:
-            if st.button("生成专业方案", key="plan___major__", use_container_width=True):
-                st.session_state["learning_topic"] = "__major__"
-                st.rerun()
 
-        # ── 第二组：升学与考证方案（结合专业增强） ──
+    # ── 第一组：专业学习方案（最突出） ──
+    st.markdown(
+        '<div class="co-section">🎯 你的专业学习方案</div>',
+        unsafe_allow_html=True,
+    )
+    _major_active = st.session_state.get("learning_topic") == "__major__"
+    # 卡片标题用**学生自己填写的专业名**；若命中的画像名与填写值不同，
+    # 在副标题里注明"按哪个画像生成"，避免出现"我写大数据却显示计算机"的误解。
+    _display_major = _major or _mprof.name
+    _pick_sub = "按专业核心课与关键能力生成，从当前学年排到毕业"
+    if _major and _mprof.name != "通用" and _mprof.name != _major:
+        _pick_sub = f"已匹配「{_mprof.name}」专业画像 · " + _pick_sub
+    mc1, mc2 = st.columns([3, 1], vertical_alignment="center")
+    with mc1:
         st.markdown(
-            '<div class="co-section">📌 升学与考证方案</div>',
+            f'<div class="co-plan-pick{" active" if _major_active else ""}">'
+            f'<div class="t">🎓 {_display_major} · 核心能力强化</div>'
+            f'<div class="s">{_pick_sub}</div>'
+            f'</div>',
             unsafe_allow_html=True,
         )
-        st.caption(
-            f"以下方案已叠加「{_display_major}」的专业建议（本专业该考什么、该抓什么），"
-            "并附知识库中的报名与考试时间节点。"
-            if _major else "以下为通用方案，填写专业后可获得针对性建议。"
-        )
+    with mc2:
+        if st.button("生成专业方案", key="plan___major__", use_container_width=True):
+            st.session_state["learning_topic"] = "__major__"
+            st.rerun()
 
-        plan_cards = [
-            ("考研", "🎓"),
-            ("实习", "💼"),
-            ("四六级", "📜"),
-            ("计算机等级考试", "💻"),
-            ("教师资格证", "👩‍🏫"),
-        ]
+    # ── 第二组：升学与考证方案（结合专业增强） ──
+    st.markdown(
+        '<div class="co-section">📌 升学与考证方案</div>',
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        f"以下方案已叠加「{_display_major}」的专业建议（本专业该考什么、该抓什么），"
+        "并附知识库中的报名与考试时间节点。"
+        if _major else "以下为通用方案，填写专业后可获得针对性建议。"
+    )
 
-        cols = st.columns(len(plan_cards))
-        for (name, icon), col in zip(plan_cards, cols):
+    plan_cards = [
+        ("考研", "🎓"),
+        ("实习", "💼"),
+        ("四六级", "📜"),
+        ("计算机等级考试", "💻"),
+        ("教师资格证", "👩‍🏫"),
+        ("HCIA 认证", "🏅"),
+    ]
+
+    # 每行 3 张：6 个主题排两行。
+    # 挤在一行会让「计算机等级考试」「HCIA 认证」这类长标签被压成竖排单字。
+    PER_ROW = 3
+    for start in range(0, len(plan_cards), PER_ROW):
+        row_cards = plan_cards[start:start + PER_ROW]
+        cols = st.columns(PER_ROW)
+        for (name, icon), col in zip(row_cards, cols):
             active = st.session_state.get("learning_topic") == name
             with col:
                 st.markdown(
@@ -917,7 +923,8 @@ with st.sidebar:
                     f'style="text-align:center;padding:var(--sp3) var(--sp2)">'
                     f'<div style="font-size:22px;line-height:1.2">{icon}</div>'
                     f'<div style="font-size:var(--fs-base);font-weight:600;'
-                    f'color:var(--c-ink);margin-top:var(--sp1)">{name}</div>'
+                    f'color:var(--c-ink);margin-top:var(--sp1);'
+                    f'white-space:nowrap">{name}</div>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
@@ -925,172 +932,174 @@ with st.sidebar:
                     st.session_state["learning_topic"] = name
                     st.rerun()
 
-        # ---- 点击后：立即生成并渲染完整方案 ----
-        topic = st.session_state.get("learning_topic")
-        if topic == "__major__":
-            plan = generate_major_plan(_major, _grade)
-        elif topic:
-            plan = generate_learning_plan(topic, _major, _grade)
-        else:
-            plan = None
+    # ---- 点击后：立即生成并渲染完整方案 ----
+    topic = st.session_state.get("learning_topic")
+    if topic == "__major__":
+        plan = generate_major_plan(_major, _grade)
+    elif topic:
+        plan = generate_learning_plan(topic, _major, _grade)
+    else:
+        plan = None
 
-        if plan:
+    if plan:
 
-            # 方案头部
-            st.markdown(
-                f'<div class="co-plan-head">'
-                f'<div class="eyebrow">已生成学习方案</div>'
-                f'<div class="title">{plan.topic}</div>'
-                f'<div class="desc">{plan.headline}</div>'
-                f'<div class="meta">总周期：{plan.total_duration}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
+        # 方案头部
+        st.markdown(
+            f'<div class="co-plan-head">'
+            f'<div class="eyebrow">已生成学习方案</div>'
+            f'<div class="title">{plan.topic}</div>'
+            f'<div class="desc">{plan.headline}</div>'
+            f'<div class="meta">总周期：{plan.total_duration}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        # 专业针对性提示（仅当方案带专业画像时出现）
+        if plan.major_name and plan.major_name != "通用":
+            _advice = (
+                f'<div style="margin-top:6px">{plan.major_advice}</div>'
+                if plan.major_advice else ""
             )
-
-            # 专业针对性提示（仅当方案带专业画像时出现）
-            if plan.major_name and plan.major_name != "通用":
-                _advice = (
-                    f'<div style="margin-top:6px">{plan.major_advice}</div>'
-                    if plan.major_advice else ""
-                )
-                # 命中的画像与填写值不同时，标明用的是哪套画像，避免"改了专业没变"的误解
-                _profile_hint = (
-                    f"　·　按「{plan.profile_name}」专业画像"
-                    if plan.profile_name and plan.profile_name not in ("通用", plan.major_name)
-                    else ""
-                )
-                if plan.profile_name == "通用":
-                    # 没有专用画像时如实说明，不假装"已定制"
-                    st.markdown(
-                        f'<div class="co-note">'
-                        f'<b>🎓 暂未内置「{plan.major_name}」专用画像</b>'
-                        f'　·　已按通用专业模板生成，核心课与证书建议以学校培养方案为准'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(
-                        f'<div class="co-note">'
-                        f'<b>🎓 已针对「{plan.major_name}」定制</b>'
-                        f'{_profile_hint}'
-                        f'{"　·　当前" + plan.current_stage if plan.current_stage else ""}'
-                        f'{_advice}'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-
-            # 三列：分阶段步骤 | 内容安排与时间 | 关键节点与资源
-            c_steps, c_time, c_res = st.columns([1.5, 1.2, 1])
-
-            with c_steps:
-                # 专业方案：核心课与能力清单放最前，这是"针对性"的核心
-                if plan.major_focus:
-                    st.markdown("**🎯 本专业核心课与关键能力**")
-                    with st.container(border=True):
-                        for item in plan.major_focus[:6]:
-                            st.markdown(f"- {item}")
-                st.markdown("**📚 分阶段学习步骤**")
-                for ph in plan.phases:
-                    with st.container(border=True):
-                        st.markdown(f"**{ph.title}**")
-                        st.caption(f"周期：{ph.duration}")
-                        for a in ph.actions:
-                            st.markdown(f"- {a}")
-
-            with c_time:
-                st.markdown("**⏱ 每周时间投入**")
-                for ph in plan.phases:
-                    with st.container(border=True):
-                        st.markdown(f"**{ph.title}**")
-                        st.markdown(ph.weekly_hours or "—")
-                if plan.tips:
-                    st.markdown("**💡 备考要点**")
-                    for t in plan.tips[:4]:
-                        st.markdown(f"- {t}")
-
-            with c_res:
-                if plan.key_dates:
-                    st.markdown("**📅 关键时间节点**")
-                    for d in plan.key_dates:
-                        st.markdown(f"- {d}")
-                    st.caption("以上节点检索自知识库条款，具体以官方最新通知为准。")
-                st.markdown("**🔗 资源信息**")
-                for r in plan.resources:
-                    st.markdown(f"**{r['name']}**")
-                    st.caption(f"{r['note']} · {r['source']}")
-                if plan.doc_refs:
-                    st.markdown("**📋 依据条款**")
-                    for ref in plan.doc_refs:
-                        st.caption(ref)
-
-            # 一键转入对话（保留原有能力：继续向智能体追问细节）
-            st.markdown("---")
-            c_ask1, c_ask2 = st.columns([3, 1])
-            question_map = {
-                "考研": "帮我制定考研的学习方案和时间规划",
-                "实习": "帮我规划一份实习方案和时间安排",
-                "四六级": "四六级怎么备考，给我个学习计划",
-                "计算机等级考试": "计算机二级怎么备考",
-                "教师资格证": "教师资格证怎么备考",
-                "__major__": f"{_major}专业该怎么学，给我个学习方案",
-            }
-            c_ask1.caption("需要更个性化的安排？把方案转入对话，智能体可结合你的课表与时间预算继续细化。")
-            if c_ask2.button("转入对话 ›", key="to_chat", use_container_width=True):
-                st.session_state["pending_input"] = question_map.get(
-                    topic, f"帮我制定{plan.topic}学习方案"
-                )
-                st.rerun()
-        else:
-            st.info("👆 点击上方任意方案卡片，即刻生成完整学习方案（分阶段步骤 / 时间投入 / 关键节点 / 资源）。")
-
-    with tab_sess:
-        col_a, col_b = st.columns(2)
-        if col_a.button("➕ 新建", use_container_width=True):
-            cur = st.session_state.session_id
-            # 当前会话若仍是空的（未开始），直接复用它，不重复新建。
-            # 否则连续点"新建"会堆出一串空会话。
-            cur_is_empty = any(
-                s.id == cur and s.message_count == 0 for s in store.list_sessions()
+            # 命中的画像与填写值不同时，标明用的是哪套画像，避免"改了专业没变"的误解
+            _profile_hint = (
+                f"　·　按「{plan.profile_name}」专业画像"
+                if plan.profile_name and plan.profile_name not in ("通用", plan.major_name)
+                else ""
             )
-            if cur_is_empty:
-                st.toast("当前已是新会话，直接输入即可")
+            if plan.profile_name == "通用":
+                # 没有专用画像时如实说明，不假装"已定制"
+                st.markdown(
+                    f'<div class="co-note">'
+                    f'<b>🎓 暂未内置「{plan.major_name}」专用画像</b>'
+                    f'　·　已按通用专业模板生成，核心课与证书建议以学校培养方案为准'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
             else:
-                st.session_state.session_id = store.create_session("新会话")
+                st.markdown(
+                    f'<div class="co-note">'
+                    f'<b>🎓 已针对「{plan.major_name}」定制</b>'
+                    f'{_profile_hint}'
+                    f'{"　·　当前" + plan.current_stage if plan.current_stage else ""}'
+                    f'{_advice}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+        # 三列：分阶段步骤 | 内容安排与时间 | 关键节点与资源
+        c_steps, c_time, c_res = st.columns([1.5, 1.2, 1])
+
+        with c_steps:
+            # 专业方案：核心课与能力清单放最前，这是"针对性"的核心
+            if plan.major_focus:
+                st.markdown("**🎯 本专业核心课与关键能力**")
+                with st.container(border=True):
+                    for item in plan.major_focus[:6]:
+                        st.markdown(f"- {item}")
+            st.markdown("**📚 分阶段学习步骤**")
+            for ph in plan.phases:
+                with st.container(border=True):
+                    st.markdown(f"**{ph.title}**")
+                    st.caption(f"周期：{ph.duration}")
+                    for a in ph.actions:
+                        st.markdown(f"- {a}")
+
+        with c_time:
+            st.markdown("**⏱ 每周时间投入**")
+            for ph in plan.phases:
+                with st.container(border=True):
+                    st.markdown(f"**{ph.title}**")
+                    st.markdown(ph.weekly_hours or "—")
+            if plan.tips:
+                st.markdown("**💡 备考要点**")
+                for t in plan.tips[:4]:
+                    st.markdown(f"- {t}")
+
+        with c_res:
+            if plan.key_dates:
+                st.markdown("**📅 关键时间节点**")
+                for d in plan.key_dates:
+                    st.markdown(f"- {d}")
+                st.caption("以上节点检索自知识库条款，具体以官方最新通知为准。")
+            st.markdown("**🔗 资源信息**")
+            for r in plan.resources:
+                st.markdown(f"**{r['name']}**")
+                st.caption(f"{r['note']} · {r['source']}")
+            if plan.doc_refs:
+                st.markdown("**📋 依据条款**")
+                for ref in plan.doc_refs:
+                    st.caption(ref)
+
+        # 一键转入对话（保留原有能力：继续向智能体追问细节）
+        st.markdown("---")
+        c_ask1, c_ask2 = st.columns([3, 1])
+        question_map = {
+            "考研": "帮我制定考研的学习方案和时间规划",
+            "实习": "帮我规划一份实习方案和时间安排",
+            "四六级": "四六级怎么备考，给我个学习计划",
+            "计算机等级考试": "计算机二级怎么备考",
+            "教师资格证": "教师资格证怎么备考",
+            "HCIA 认证": "我想考 HCIA 证书，给我一个学习方案和时间规划",
+            "__major__": f"{_major}专业该怎么学，给我个学习方案",
+        }
+        c_ask1.caption("需要更个性化的安排？把方案转入对话，智能体可结合你的课表与时间预算继续细化。")
+        if c_ask2.button("转入对话 ›", key="to_chat", use_container_width=True):
+            st.session_state["pending_input"] = question_map.get(
+                topic, f"帮我制定{plan.topic}学习方案"
+            )
+            st.rerun()
+    else:
+        st.info("👆 点击上方任意方案卡片，即刻生成完整学习方案（分阶段步骤 / 时间投入 / 关键节点 / 资源）。")
+
+with tab_sess:
+    col_a, col_b = st.columns(2)
+    if col_a.button("➕ 新建", use_container_width=True):
+        cur = st.session_state.session_id
+        # 当前会话若仍是空的（未开始），直接复用它，不重复新建。
+        # 否则连续点"新建"会堆出一串空会话。
+        cur_is_empty = any(
+            s.id == cur and s.message_count == 0 for s in store.list_sessions()
+        )
+        if cur_is_empty:
+            st.toast("当前已是新会话，直接输入即可")
+        else:
+            st.session_state.session_id = store.create_session("新会话")
+            st.session_state.tool_events = []
+        st.rerun()
+
+    sessions = store.list_sessions()
+    # 显示**全部**会话。
+    # 之前用「有消息 or 是当前会话」过滤，导致新建的空会话一切走就消失，
+    # 用户会以为"新建的会话丢了"。空会话明确标注「未开始」即可。
+    if not sessions:
+        st.caption("暂无对话，输入问题即可开始。")
+    for s in sessions:
+        is_current = s.id == st.session_state.session_id
+        marker = "● " if is_current else "○ "
+        if s.message_count > 0:
+            label = f"{marker}{s.title}"
+            hint = f"{s.message_count} 条 · {s.updated_at[5:16]}"
+        else:
+            label = f"{marker}新会话"
+            hint = "未开始 · 等待提问"
+        # 每行：左侧切换按钮 + 右侧删除按钮
+        row_a, row_b = st.columns([4, 1], vertical_alignment="center")
+        with row_a:
+            if st.button(label, key=f"ses_{s.id}", use_container_width=True):
+                st.session_state.session_id = s.id
                 st.session_state.tool_events = []
+                st.rerun()
+            st.caption(hint)
+        if row_b.button("🗑", key=f"del_{s.id}", help="删除该会话"):
+            store.delete_session(s.id)
+            # 若删除的是当前会话，切到剩余最近一条（或无会话）
+            remaining = store.list_sessions()
+            if s.id == st.session_state.session_id:
+                st.session_state.session_id = remaining[0].id if remaining else None
+            st.session_state.tool_events = []
             st.rerun()
 
-        sessions = store.list_sessions()
-        # 显示**全部**会话。
-        # 之前用「有消息 or 是当前会话」过滤，导致新建的空会话一切走就消失，
-        # 用户会以为"新建的会话丢了"。空会话明确标注「未开始」即可。
-        if not sessions:
-            st.caption("暂无对话，输入问题即可开始。")
-        for s in sessions:
-            is_current = s.id == st.session_state.session_id
-            marker = "● " if is_current else "○ "
-            if s.message_count > 0:
-                label = f"{marker}{s.title}"
-                hint = f"{s.message_count} 条 · {s.updated_at[5:16]}"
-            else:
-                label = f"{marker}新会话"
-                hint = "未开始 · 等待提问"
-            # 每行：左侧切换按钮 + 右侧删除按钮
-            row_a, row_b = st.columns([4, 1], vertical_alignment="center")
-            with row_a:
-                if st.button(label, key=f"ses_{s.id}", use_container_width=True):
-                    st.session_state.session_id = s.id
-                    st.session_state.tool_events = []
-                    st.rerun()
-                st.caption(hint)
-            if row_b.button("🗑", key=f"del_{s.id}", help="删除该会话"):
-                store.delete_session(s.id)
-                # 若删除的是当前会话，切到剩余最近一条（或无会话）
-                remaining = store.list_sessions()
-                if s.id == st.session_state.session_id:
-                    st.session_state.session_id = remaining[0].id if remaining else None
-                st.session_state.tool_events = []
-                st.rerun()
-
+with st.sidebar:
     _section_title("智能体能力")
 
     with st.expander("🧠 长期记忆（AGENTS.md）"):

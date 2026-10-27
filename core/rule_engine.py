@@ -19,6 +19,7 @@ from typing import Any
 
 from core.api_client import BackendUnavailable, get_client
 from core.knowledge import get_searcher
+from core.learning_plans import generate_learning_plan
 from core.subagents import (
     BudgetRequest,
     SolveRequest,
@@ -38,7 +39,10 @@ INTENT_RULES: list[tuple[str, list[str]]] = [
     ("artifact", ["清单", "表格", "计划", "文档", "导出", "生成"]),
     # 学习方案类（考证 / 实习 / 考研），领域专属词，避免误吞选课/每周计划
     ("learning", ["考研", "研究生", "四六级", "四级", "六级", "计算机等级", "教师资格",
-                  "教资", "普通话", "实习", "证书", "考证", "备考"]),
+                  "教资", "普通话", "实习", "证书", "考证", "备考",
+                  # 厂商认证（华为 ICT 认证体系）
+                  "hcia", "hcip", "hcie", "华为认证", "datacom", "数通",
+                  "云计算认证", "大数据认证", "认证考试"]),
 ]
 
 # 星期关键词
@@ -188,6 +192,31 @@ def extract_keywords(text: str) -> list[str]:
         if kw.lower() in lowered:
             kws.append(kw)
     return kws
+
+
+# 学习方案主题 → 触发词。顺序即优先级（越具体的排越前）。
+# 与 core/learning_plans.py 的模板 key 必须保持一致。
+LEARNING_TOPICS: list[tuple[str, list[str]]] = [
+    ("HCIA 认证", ["hcia", "hcip", "hcie", "华为认证", "datacom", "数通",
+                   "云计算认证", "大数据认证"]),
+    ("考研", ["考研", "研究生", "推免"]),
+    ("实习", ["实习", "暑期实习", "日常实习"]),
+    ("四六级", ["四六级", "四级", "六级", "cet"]),
+    ("计算机等级考试", ["计算机等级", "ncre", "二级考试", "三级考试"]),
+    ("教师资格证", ["教师资格", "教资"]),
+]
+
+
+def detect_learning_topic(text: str) -> str:
+    """从一句话里认出具体的考证 / 升学主题；认不出返回空串。
+
+    认不出时上层会退回"按类别列条款"的通用回答，而不是硬套一个模板。
+    """
+    lowered = text.lower()
+    for topic, keys in LEARNING_TOPICS:
+        if any(k.lower() in lowered for k in keys):
+            return topic
+    return ""
 
 
 class RuleEngine:
@@ -517,10 +546,19 @@ class RuleEngine:
     def _handle_learning(self, text: str, ctx: dict[str, Any]) -> str:
         """学习方案：考证 / 实习 / 考研 建议 + 预计学习时间。
 
-        命中考证/实习/考研类意图，检索对应类别知识库，把时间线 + 预计投入
-        组织成一份可执行的学习方案。
+        两种输出：
+        1. 认出具体主题（如 HCIA、四六级）→ 输出**结构化方案**
+           （分阶段步骤 + 每周投入 + 资源 + 专业针对性建议 + 依据条款）；
+        2. 认不出主题 → 退回"按类别列条款"的通用回答，不硬套模板。
         """
-        # 判断类别
+        # 调用真实政策检索工具（走同一知识库，界面可见）
+        self._invoke("search_policy", {"keyword": text[:30], "top_k": 4})
+
+        topic = detect_learning_topic(text)
+        if topic:
+            return self._render_learning_plan(topic, ctx)
+
+        # ---- 未识别具体主题：按类别列条款 ----
         lowered = text.lower()
         if any(k in lowered for k in ["考研", "研究生"]):
             category = "考研"
@@ -528,9 +566,6 @@ class RuleEngine:
             category = "实习"
         else:
             category = "考证"
-
-        # 调用真实政策检索工具（走同一知识库，界面可见）
-        self._invoke("search_policy", {"keyword": text[:30], "top_k": 4})
 
         searcher = get_searcher()
         hits = searcher.search(text, top_k=3, category=category)
@@ -573,6 +608,64 @@ class RuleEngine:
 
         lines.append("")
         lines.append("> 以上为学习规划建议，具体时间与政策以学校及官方最新通知为准。")
+        return "\n".join(lines)
+
+    def _render_learning_plan(self, topic: str, ctx: dict[str, Any]) -> str:
+        """把结构化方案渲染成对话可读的 Markdown。
+
+        专业与年级从**当前档案**读取，因此换专业后建议会跟着变。
+        """
+        dept, grade = "", ""
+        try:
+            prof = get_client().get_current_profile()
+            dept = str(prof.get("department") or "")
+            grade = str(prof.get("grade") or "")
+        except Exception:  # noqa: BLE001  后端不可用时仍给通用方案
+            pass
+
+        plan = generate_learning_plan(topic, dept, grade)
+
+        head = f"【学习方案 · {plan.topic}】"
+        if dept:
+            head += f"　专业：{dept}" + (f" · {grade}" if grade else "")
+
+        lines = [
+            head,
+            "",
+            f"**{plan.headline}**",
+            f"⏱ 总周期：{plan.total_duration}",
+            "",
+        ]
+
+        for ph in plan.phases:
+            lines.append(f"### {ph.title}（{ph.duration}）")
+            for action in ph.actions:
+                lines.append(f"- {action}")
+            if ph.weekly_hours:
+                lines.append(f"- **每周投入**：{ph.weekly_hours}")
+            lines.append("")
+
+        if plan.resources:
+            lines.append("### 📚 资源")
+            for r in plan.resources[:4]:
+                lines.append(f"- {r['name']} —— {r['note']}（{r['source']}）")
+            lines.append("")
+
+        if plan.tips:
+            lines.append("### 💡 关键建议")
+            for tip in plan.tips[:4]:
+                lines.append(f"- {tip}")
+            if plan.major_advice:
+                lines.append(f"- **针对{dept or '你的专业'}**：{plan.major_advice}")
+            lines.append("")
+
+        if plan.doc_refs:
+            lines.append("### 📌 依据条款")
+            for ref in plan.doc_refs[:3]:
+                lines.append(f"- {ref}")
+            lines.append("")
+
+        lines.append("> 方案为规划建议；考试方向、费用与有效期以官方当期公布为准。")
         return "\n".join(lines)
 
     def _handle_artifact(self, text: str, ctx: dict[str, Any]) -> str:

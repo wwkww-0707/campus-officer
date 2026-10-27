@@ -286,7 +286,7 @@ pre.sm{ font-size:11.6px; line-height:1.66; }
             <tr><td><b>编排</b></td><td>单步调用 / create_react_agent</td>
                 <td><b>手写 LangGraph 5 节点状态图</b>：planner → agent ⇄ tools → reflect，含 rule 降级分支</td></tr>
             <tr><td><b>知识库</b></td><td>无 / 少量文档</td>
-                <td><b>17 条带文号与生效期的条款</b>，BM25 检索 + <b>失效条款降权</b></td></tr>
+                <td><b>18 条带文号与生效期的条款</b>，BM25 检索 + <b>失效条款降权</b></td></tr>
             <tr><td><b>Skill</b></td><td>用系统提示词代替</td>
                 <td><b>2 个符合 Agent Skills 规范</b>（SKILL.md frontmatter + 模板 + allowed-tools）</td></tr>
             <tr><td><b>安全</b></td><td>无限制</td>
@@ -354,7 +354,7 @@ pre.sm{ font-size:11.6px; line-height:1.66; }
                 <div class="lbl">数据与模型</div>
                 <div class="boxes">
                     <div class="abox"><div class="t">FastAPI + SQLite</div><div class="d">16 个接口，12 门课程种子</div></div>
-                    <div class="abox"><div class="t">知识库 17 条</div><div class="d">带文号 / 生效期 / 来源</div></div>
+                    <div class="abox"><div class="t">知识库 18 条</div><div class="d">带文号 / 生效期 / 来源</div></div>
                     <div class="abox"><div class="t">outputs/</div><div class="d">清单 · 自检表 · 计划 · .ics</div></div>
                     <div class="abox dash"><div class="t">百炼 → Ollama → 规则</div><div class="d">三层降级，无 Key 可跑</div></div>
                 </div>
@@ -568,7 +568,7 @@ pre.sm{ font-size:11.6px; line-height:1.66; }
                 <ul class="tight" style="margin-top:9px">
                     <li><b>条款元数据</b>：文号、生效日、失效日、来源 —— 回答可溯源</li>
                     <li><b>三类标注</b>：真实条款 / 校内演示样例 / 已失效，界面分别提示</li>
-                    <li><b>17 条条款</b>覆盖奖助、学籍、选课、四六级、考研、宿舍等</li>
+                    <li><b>18 条条款</b>覆盖奖助、学籍、选课、四六级、考研、宿舍等</li>
                     <li>库里故意保留<b>一条已失效旧办法</b>，用来演示降权机制</li>
                 </ul>
                 <div class="note warn" style="margin-top:8px;font-size:12px">
@@ -767,6 +767,8 @@ Ollama（本地开源模型）
                         <td>确定性算法结论，可当堂复现</td></tr>
                     <tr><td>4</td><td>帮我把选课方案整理成一份清单文件</td>
                         <td>产出物落盘，侧栏可下载</td></tr>
+                    <tr><td>5</td><td>我想考 HCIA 证书，给我个学习计划</td>
+                        <td>知识库检索 → 四阶段备考方案（按专业给建议）</td></tr>
                 </table>
                 <div class="note" style="margin-top:8px;font-size:12px">
                     <b>时间分配</b>　4 分钟讲这份幻灯片（重点停在第 5、7 页代码）
@@ -780,7 +782,7 @@ Ollama（本地开源模型）
                     <ul class="tight">
                         <li><b>真实模型需自备 Key</b>：无 Key 时走规则引擎，语言表达偏模板化</li>
                         <li><b>官网同步依赖本机 Edge</b>：换机器需确认浏览器存在</li>
-                        <li><b>知识库仅 17 条</b>：只覆盖常见校务，专业细则未收录</li>
+                        <li><b>知识库仅 18 条</b>：只覆盖常见校务，专业细则未收录</li>
                         <li><b>无多用户鉴权</b>：当前假设单人使用，未做账号体系</li>
                         <li><b>单机 SQLite</b>：并发能力有限，不适合真实校级部署</li>
                     </ul>
@@ -795,7 +797,7 @@ Ollama（本地开源模型）
                     </ul>
                 </div>
                 <div class="stat" style="margin-top:9px">
-                    <div class="s"><div class="v">161</div><div class="k">项测试</div></div>
+                    <div class="s"><div class="v">180</div><div class="k">项测试</div></div>
                     <div class="s"><div class="v">11</div><div class="k">工具</div></div>
                     <div class="s"><div class="v">17</div><div class="k">条款</div></div>
                 </div>
@@ -804,7 +806,7 @@ Ollama（本地开源模型）
         <div class="grid" style="grid-template-columns:repeat(6,1fr);gap:7px;margin-top:10px">
             <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>问题与场景</b> 10<br><span style="color:var(--mute)">三件套事务闭环</span></p></div>
             <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>智能体与工具</b> 25<br><span style="color:var(--mute)">11 工具均真实调用</span></p></div>
-            <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>工程与仓库</b> 20<br><span style="color:var(--mute)">README + 161 测试</span></p></div>
+            <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>工程与仓库</b> 20<br><span style="color:var(--mute)">README + 180 测试</span></p></div>
             <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>界面与演示</b> 15<br><span style="color:var(--mute)">执行过程可见</span></p></div>
             <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>HTML 与表达</b> 15<br><span style="color:var(--mute)">12 页 · 零外链</span></p></div>
             <div class="card" style="padding:6px 9px"><p style="font-size:10.8px;line-height:1.5"><b>问答与规范</b> 15<br><span style="color:var(--mute)">5 段代码可指认</span></p></div>
