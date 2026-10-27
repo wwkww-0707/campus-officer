@@ -359,27 +359,30 @@ def _inject_css() -> None:
 def _brand_bar(tags: list[str]) -> None:
     """渲染顶部品牌栏。"""
     tag_html = "".join(f'<span class="tag">{t}</span>' for t in tags)
+    # 注意：HTML 必须顶格写。st.markdown 的内容若缩进 ≥4 空格，
+    # 会被 Markdown 解析成「代码块」，整块 HTML 以源码文本显示在页面上
+    # （表现为：顶部品牌栏一片空白、右侧出现 <div class=...> 字样）。
     st.markdown(
         f"""
-        <div class="co-brand-bar">
-            <div class="title">Campus Officer · 校园事务官</div>
-            <div class="sub">面向本校本科生的教务事务智能体 · 选课冲突裁决 → 奖助学金材料 → 学习规划 一条事务链走通</div>
-            <div class="tags">{tag_html}</div>
-        </div>
-        """,
+<div class="co-brand-bar">
+<div class="title">Campus Officer · 校园事务官</div>
+<div class="sub">面向本校本科生的教务事务智能体 · 选课冲突裁决 → 奖助学金材料 → 学习规划 一条事务链走通</div>
+<div class="tags">{tag_html}</div>
+</div>
+""",
         unsafe_allow_html=True,
     )
 
 
 def _status_cards(items: list[dict]) -> None:
-    """渲染顶部状态卡片栏。"""
+    """渲染顶部状态卡片栏（HTML 同样必须顶格，原因见 _render_brand_bar）。"""
     cards = "".join(
         f"""
-        <div class="co-status-card">
-            <div class="label">{c["label"]}</div>
-            <div class="value"><span class="co-dot {c.get("dot","info")}"></span>{c["value"]}</div>
-        </div>
-        """
+<div class="co-status-card">
+<div class="label">{c["label"]}</div>
+<div class="value"><span class="co-dot {c.get("dot","info")}"></span>{c["value"]}</div>
+</div>
+"""
         for c in items
     )
     st.markdown(f'<div class="co-status-row">{cards}</div>', unsafe_allow_html=True)
