@@ -307,6 +307,9 @@ campus-officer/
 └── docs/presentation.html      # ── 介绍 HTML（12 页，零外链，含 5 页代码讲解）
 ```
 
+> **汇报幻灯片在线预览**：https://wwkww-0707.github.io/campus-officer/presentation.html
+> （也可直接双击本地 `docs/presentation.html`，无需联网；← → 翻页）
+
 ---
 
 ## 九、关键代码指认
